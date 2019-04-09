@@ -35,7 +35,7 @@ namespace allocator
 {
     ///////////////////////////////////////////////////////////////////////////
     HPX_CONSTEXPR std::size_t BLOCK_ALIGNMENT = 8;
-    HPX_CONSTEXPR std::size_t PAGE_SIZE = 16384;
+    HPX_CONSTEXPR std::size_t PAGE_SIZE_ = 16384;
 
     struct alloc_page;
 
@@ -79,14 +79,13 @@ namespace allocator
         alloc_block& operator=(alloc_block const&) = delete;
         alloc_block& operator=(alloc_block&&) = delete;
 
-        HPX_CONSTEXPR HPX_FORCEINLINE alloc_block* operator[](
-            std::size_t i) noexcept
+        HPX_FORCEINLINE alloc_block* operator[](std::size_t i) noexcept
         {
             return reinterpret_cast<alloc_block*>(
                 reinterpret_cast<char*>(this) + i * allocation_size);
         }
-        HPX_CONSTEXPR HPX_FORCEINLINE alloc_block const* operator[](
-            std::size_t i) const noexcept
+        HPX_FORCEINLINE alloc_block const* operator[](std::size_t i) const
+            noexcept
         {
             return reinterpret_cast<alloc_block const*>(
                 reinterpret_cast<char const*>(this) + i * allocation_size);
@@ -153,7 +152,7 @@ namespace allocator
         alloc_page& operator=(alloc_page &&) = delete;
 
         template <typename T>
-        HPX_CONSTEXPR HPX_FORCEINLINE alloc_block<T>* get_block() noexcept
+        HPX_FORCEINLINE alloc_block<T>* get_block() noexcept
         {
             static_assert(page_size >= alloc_block<T>::allocation_size,
                 "size of objects is larger than configured page size");
@@ -164,8 +163,8 @@ namespace allocator
             return reinterpret_cast<alloc_block<T>*>(&data);
         }
         template <typename T>
-        HPX_CONSTEXPR HPX_FORCEINLINE alloc_block<T> const* get_block() const
-            noexcept
+        HPX_FORCEINLINE alloc_block<T> const* get_block()
+            const noexcept
         {
             static_assert(page_size >= alloc_block<T>::allocation_size,
                 "size of objects is larger than configured page size");
@@ -177,7 +176,7 @@ namespace allocator
         }
 
         template <typename T>
-        HPX_CONSTEXPR HPX_FORCEINLINE T& get(std::size_t i) noexcept
+        HPX_FORCEINLINE T& get(std::size_t i) noexcept
         {
             static_assert(page_size >= alloc_block<T>::allocation_size,
                 "size of objects is larger than configured page size");
@@ -189,8 +188,7 @@ namespace allocator
                 static_cast<alloc_block_header*>((*get_block<T>())[i]) + 1));
         }
         template <typename T>
-        HPX_CONSTEXPR HPX_FORCEINLINE T const& get(std::size_t i) const
-            noexcept
+        HPX_FORCEINLINE T const& get(std::size_t i) const noexcept
         {
             static_assert(page_size >= alloc_block<T>::allocation_size,
                 "size of objects is larger than configured page size");
@@ -206,7 +204,7 @@ namespace allocator
         // for the available page size we account for the members of this
         // class below
         HPX_STATIC_CONSTEXPR std::size_t page_size =
-            PAGE_SIZE - sizeof(void*) - 2*sizeof(std::size_t);
+            PAGE_SIZE_ - sizeof(void*) - 2*sizeof(std::size_t);
 
         typename std::aligned_storage<page_size>::type data;
 
@@ -216,13 +214,13 @@ namespace allocator
     };
 
     template <typename T>
-    HPX_CONSTEXPR HPX_FORCEINLINE T& get(
+    HPX_CXX14_CONSTEXPR HPX_FORCEINLINE T& get(
         alloc_page* page, std::size_t i) noexcept
     {
         return page->template get<T>(i);
     }
     template <typename T>
-    HPX_CONSTEXPR HPX_FORCEINLINE T const& get(
+    HPX_CXX14_CONSTEXPR HPX_FORCEINLINE T const& get(
         alloc_page const* page, std::size_t i) noexcept
     {
         return page->template get<T>(i);

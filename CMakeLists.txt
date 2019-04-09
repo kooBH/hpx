@@ -356,18 +356,6 @@ if(HPX_WITH_CUDA)
   set(HPX_WITH_COMPUTE On)
   hpx_add_config_define(HPX_HAVE_CUDA)
   hpx_add_config_define(HPX_HAVE_COMPUTE)
-  if(NOT HPX_WITH_CUDA_ARCH)
-    hpx_info("HPX_WITH_CUDA_ARCH has not been defined, default value is sm_20")
-    set(HPX_WITH_CUDA_ARCH sm_20)
-  endif()
-  foreach(arch ${HPX_WITH_CUDA_ARCH})
-    string(REGEX MATCHALL "sm_[0-9][0-9]" arch ${arch})
-    if(NOT arch)
-      hpx_error("Each architecture defined in HPX_WITH_CUDA_ARCH should be a list of items, each of the form sm_XX")
-    endif()
-    string(APPEND HPX_CUDA_CLANG_FLAGS " --cuda-gpu-arch=${arch}")
-  endforeach()
-  string(REGEX REPLACE ";" " " HPX_WITH_CUDA_ARCH_INFO "${HPX_WITH_CUDA_ARCH}")
   # keywords for target_link_libraries (cuda)
   set(CUDA_LINK_LIBRARIES_KEYWORD "PRIVATE")
 endif()
@@ -487,10 +475,12 @@ endif()
 
 set(HPX_MAX_CPU_COUNT_DEFAULT "64")
 hpx_option(HPX_WITH_MAX_CPU_COUNT STRING
-  "HPX applications will not use more that this number of OS-Threads (default: ${HPX_MAX_CPU_COUNT_DEFAULT})"
-  ${HPX_MAX_CPU_COUNT_DEFAULT}
+  "HPX applications will not use more that this number of OS-Threads (empty string means dynamic) (default: ${HPX_MAX_CPU_COUNT_DEFAULT})"
+  "${HPX_MAX_CPU_COUNT_DEFAULT}"
   CATEGORY "Thread Manager" ADVANCED)
-hpx_add_config_define(HPX_HAVE_MAX_CPU_COUNT ${HPX_WITH_MAX_CPU_COUNT})
+if(HPX_WITH_MAX_CPU_COUNT)
+  hpx_add_config_define(HPX_HAVE_MAX_CPU_COUNT ${HPX_WITH_MAX_CPU_COUNT})
+endif()
 
 set(HPX_MAX_NUMA_DOMAIN_COUNT_DEFAULT "4")
 hpx_option(HPX_WITH_MAX_NUMA_DOMAIN_COUNT STRING
@@ -500,7 +490,7 @@ hpx_option(HPX_WITH_MAX_NUMA_DOMAIN_COUNT STRING
 hpx_add_config_define(HPX_HAVE_MAX_NUMA_DOMAIN_COUNT ${HPX_WITH_MAX_NUMA_DOMAIN_COUNT})
 
 set(HPX_MORE_THAN_64_THREADS_DEFAULT OFF)
-if(HPX_WITH_MAX_CPU_COUNT GREATER 64)
+if((NOT HPX_WITH_MAX_CPU_COUNT) OR (HPX_WITH_MAX_CPU_COUNT GREATER 64))
   set(HPX_MORE_THAN_64_THREADS_DEFAULT ON)
 endif()
 hpx_option(HPX_WITH_MORE_THAN_64_THREADS BOOL
@@ -598,8 +588,8 @@ if(HPX_WITH_THREAD_CUMULATIVE_COUNTS)
 endif()
 
 hpx_option(HPX_WITH_THREAD_STEALING_COUNTS BOOL
-  "Enable keeping track of counts of thread stealing incidents in the schedulers (default: ON)"
-  ON CATEGORY "Thread Manager" ADVANCED)
+  "Enable keeping track of counts of thread stealing incidents in the schedulers (default: OFF)"
+  OFF CATEGORY "Thread Manager" ADVANCED)
 
 if(HPX_WITH_THREAD_STEALING_COUNTS)
   hpx_add_config_define(HPX_HAVE_THREAD_STEALING_COUNTS)
@@ -697,7 +687,7 @@ hpx_option(HPX_WITH_THREAD_SCHEDULERS STRING
   "all"
   CATEGORY "Thread Manager" ADVANCED)
 
-string(TOUPPER ${HPX_WITH_THREAD_SCHEDULERS} HPX_WITH_THREAD_SCHEDULERS_UC)
+string(TOUPPER "${HPX_WITH_THREAD_SCHEDULERS}" HPX_WITH_THREAD_SCHEDULERS_UC)
 foreach(_scheduler ${HPX_WITH_THREAD_SCHEDULERS_UC})
   if(_scheduler STREQUAL "ALL")
     set(_all On)
@@ -792,8 +782,8 @@ if(HPX_WITH_NETWORKING)
 
   ## mpi parcelport settings
   hpx_option(HPX_WITH_PARCELPORT_MPI_ENV STRING
-    "List of environment variables checked to detect MPI (default: MV2_COMM_WORLD_RANK;PMI_RANK;OMPI_COMM_WORLD_SIZE;ALPS_APP_PE)."
-    "MV2_COMM_WORLD_RANK;PMI_RANK;OMPI_COMM_WORLD_SIZE;ALPS_APP_PE" CATEGORY "Parcelport" ADVANCED)
+    "List of environment variables checked to detect MPI (default: MV2_COMM_WORLD_RANK;PMI_RANK;OMPI_COMM_WORLD_SIZE;ALPS_APP_PE;PMIX_RANK)."
+    "MV2_COMM_WORLD_RANK;PMI_RANK;OMPI_COMM_WORLD_SIZE;ALPS_APP_PE;PMIX_RANK" CATEGORY "Parcelport" ADVANCED)
   hpx_option(HPX_WITH_PARCELPORT_MPI_MULTITHREADED BOOL
     "Turn on MPI multithreading support (default: ON)."
     ON CATEGORY "Parcelport" ADVANCED)
@@ -1130,7 +1120,6 @@ hpx_detect_cpp_dialect()
 # CUDA features
 ################################################################################
 if(HPX_WITH_CUDA)
-  hpx_info("HPX_WITH_CUDA_ARCH has been set with values: ${HPX_WITH_CUDA_ARCH_INFO}")
   if(NOT HPX_WITH_CUDA_CLANG)
     hpx_libraries(cudadevrt)
     if(NOT MSVC)
@@ -1151,19 +1140,13 @@ if(HPX_WITH_CUDA)
       set(CUDA_NVCC_FLAGS_RELEASE ${CUDA_NVCC_FLAGS_RELEASE};-DNDEBUG;-O2;-Xcompiler=-MD,-Ox;-Xcompiler=-bigobj)
     endif()
     set(CUDA_SEPARABLE_COMPILATION ON)
-    foreach(arch ${HPX_WITH_CUDA_ARCH})
-      string(REPLACE "sm_" "" arch ${arch})
-      set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-gencode=arch=compute_${arch},code=sm_${arch})
-    endforeach()
     set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};${CXX_FLAG})
     set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};--expt-relaxed-constexpr)
     set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};--expt-extended-lambda)
     set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};--default-stream per-thread)
     set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-lcudadevrt)
-    set(CUDA_NVCC_FLAGS ${CUDA_NVCC_FLAGS};-rdc=true)
   else()
     hpx_add_target_compile_option(-DBOOST_THREAD_USES_MOVE PUBLIC)
-    hpx_add_target_compile_option(--cuda-path=${CUDA_TOOLKIT_ROOT_DIR} PUBLIC)
     hpx_libraries(cudart)
     hpx_library_dir(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
     link_directories(${CUDA_TOOLKIT_ROOT_DIR}/lib64)
@@ -1381,13 +1364,17 @@ if(HPX_WITH_COMPILER_WARNINGS)
     hpx_add_compile_flag(-W3 LANGUAGES C CXX)
     # According to the ifort Windows manual, W3 isn't supported
     hpx_add_compile_flag(-W1 LANGUAGES Fortran)
-    # Boost.Lockfree triggers 'warning C4307: '+' : integral constant overflow'
-    # which is benign
-    hpx_add_compile_flag(-wd4307)
 
     # MSVC2012/2013 are overeager to report 'qualifier applied to function type
     # has no meaning; ignored'
     hpx_add_compile_flag(-wd4180)
+
+    # Boost.Lockfree triggers 'warning C4307: '+' : integral constant overflow'
+    # which is benign
+    hpx_add_compile_flag(-wd4307)
+
+    # object allocated on the heap may not be aligned
+    hpx_add_compile_flag(-wd4316)
 
     # max symbol length exceeded
     hpx_add_compile_flag(-wd4503)
@@ -1432,6 +1419,12 @@ if(HPX_WITH_COMPILER_WARNINGS)
     # Boost.Logging is built on fprintf, sadly
     hpx_add_compile_flag_if_available(-Wformat=2)
     hpx_add_compile_flag_if_available(-Wno-format-nonliteral)
+
+    # enable C++17 style alignment on allocations for pre=C++17
+    hpx_add_compile_flag_if_available(-faligned-new)
+
+    # prevent warnings about over-aligned types for pre-C++17
+    hpx_add_compile_flag_if_available(-Wno-aligned-new)
 
     # Self initialization is dangerous
     hpx_add_compile_flag_if_available(-Winit-self)
